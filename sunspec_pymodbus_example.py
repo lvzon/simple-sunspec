@@ -11,7 +11,7 @@ from pymodbus.client.sync import ModbusTcpClient # for pymodbus 2.x
 def pymodbus_connect_tcp (host, port = 502, modbus_id = 1):
     # Connect to a SunSpec-inverter over Modbus TCP using pymodbus
     client = ModbusTcpClient(host = host, port = port, timeout = 10)
-    return {'pymodbus_client': client, 'ip': host, 'port': port, 'modbus_id': 1}
+    return {'pymodbus_client': client, 'ip': host, 'port': port, 'modbus_id': modbus_id}
 
 def read_modbus (device, reg_start, reg_vals):
     # Read modbus registers (currently this uses Modbus TCP directly, but other routes are possible)
