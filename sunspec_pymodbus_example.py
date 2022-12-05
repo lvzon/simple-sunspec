@@ -8,7 +8,7 @@ import time
 from pymodbus.client.sync import ModbusTcpClient # for pymodbus 2.x
 #from pymodbus.client import ModbusTcpClient # for pymodbus 3.x
 
-def pymodbus_connect (host, port, modbus_id):
+def pymodbus_connect_tcp (host, port = 502, modbus_id = 1):
     # Connect to a SunSpec-inverter over Modbus TCP using pymodbus
     client = ModbusTcpClient(host = host, port = port, timeout = 10)
     return {'pymodbus_client': client, 'ip': host, 'port': port, 'modbus_id': 1}
@@ -179,7 +179,7 @@ port = 502  # Is usually 502, but tends to be 1502 for newer SolarEdge-inverters
 
 # Connect to the inverter
 
-dev = pymodbus_connect(host, port = port)
+dev = pymodbus_connect_tcp(host, port = port)
 
 # Read and print static information
 
