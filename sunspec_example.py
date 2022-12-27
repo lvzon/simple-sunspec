@@ -5,21 +5,20 @@
 
 import struct
 import time
-from pymodbus.client.sync import ModbusTcpClient # for pymodbus 2.x
-#from pymodbus.client import ModbusTcpClient # for pymodbus 3.x
 
-def pymodbus_connect_tcp (host, port = 502, modbus_id = 1):
-    # Connect to a SunSpec-inverter over Modbus TCP using pymodbus
-    client = ModbusTcpClient(host = host, port = port, timeout = 10)
-    return {'pymodbus_client': client, 'ip': host, 'port': port, 'modbus_id': modbus_id}
+from modbus_device_tcp import ModbusClientTCP
 
-def read_modbus (device, reg_start, reg_vals):
-    # Read modbus registers (currently this uses Modbus TCP directly, but other routes are possible)
-    client = dev['pymodbus_client']
-    rr = client.read_holding_registers(reg_start, reg_vals, unit=dev['modbus_id'])
-    if rr.isError():
-        return None
-    return rr.registers
+# Make sure you enable Modbus TCP on your inverter (for SolarEdge in SetApp: Site Communication -> Modbus TCP -> Enable)
+
+# Change these to the IP-address and modbus-TCP-port of your inverter
+
+host = '10.0.10.71'
+port = 502      # Is usually 502, but tends to be 1502 for newer SolarEdge-inverters
+dev_id = 1      # Modbus slave ID, usually 1 for Modbus TCP
+timeout = 10    # Request time-out in seconds
+
+client = ModbusClientTCP(host, port, dev_id, timeout)
+
 
 def regbytes (int_vals):
     # Convert a list of modbus register values into a block of bytes
@@ -53,14 +52,14 @@ def regstofloat32 (regs):
     swapped = regs[1], regs[0]
     return struct.unpack('!f', regbytes(swapped))[0] # See: https://docs.python.org/3/library/struct.html
 
-def sunspec_get_static (dev):
+def sunspec_get_static (client):
 
     # Read static inverter information (mostly) from the SunSpec Common Model register block
     
     static = {}
     
     # Read the header of the SunSpec Common block
-    response = read_modbus(dev, 40000, 4)
+    response = client.read(40000, 4)
     if response:
         bin_resp = regbytes(response)
         mbmap_header = bytestostr(bin_resp[:4]) # First four bytes 'SunS' uniquely identify this as a SunSpec MODBUS Map
@@ -70,7 +69,7 @@ def sunspec_get_static (dev):
         return None
         
     # Read the rest of the SunSpec Common block
-    response = read_modbus(dev, 40004, cmb_len)
+    response = client.read(40004, cmb_len)
     if response:
         static['manufacturer'] = bytestostr(regbytes(response[:16])).strip() # The first 16 registers are C_Manufacturer
         static['model'] = bytestostr(regbytes(response[16:32])) # The next 16 registers are C_Model
@@ -78,26 +77,26 @@ def sunspec_get_static (dev):
         static['serial'] = bytestostr(regbytes(response[48:64])) # These 16 registers are C_SerialNumber
         if static['manufacturer'] == 'SolarEdge':
            # For SolarEdge, read the max. active power in W from register 0xf304 (Float32)
-            response = read_modbus(dev, 0xf304, 2)
+            response = client.read(0xf304, 2)
             if response:
                 static['P_max'] = round(regstofloat32(response))
             
     # Read phases from the header of the device specific block
-    response = read_modbus(dev, 40069, 1)
+    response = client.read(40069, 1)
     if response:
         static['phases'] = response[0] - 100    
     
     return static
 
 
-def sunspec_get_vars (dev):
+def sunspec_get_vars (client):
 
     # Read dynamic inverter variables from the SunSpec device specific register block
     
     var = {}
     
     # Read header of device specific block
-    response = read_modbus(dev, 40069, 2)
+    response = client.read(40069, 2)
     if response:
         phases = response[0] - 100
         dsb_len = response[1]
@@ -105,7 +104,7 @@ def sunspec_get_vars (dev):
         return None
         
     # Read rest of device specific block
-    response = read_modbus(dev, 40071, dsb_len)
+    response = client.read(40071, dsb_len)
     
     if response:
         
@@ -170,27 +169,21 @@ def sunspec_get_vars (dev):
     return var
 
 
-# Make sure you enable Modbus TCP on your inverter (for SolarEdge in SetApp: Site Communication -> Modbus TCP -> Enable)
-
-# Change these to the IP-address and modbus-TCP-port of your inverter
-
-host = '10.0.10.71'
-port = 502  # Is usually 502, but tends to be 1502 for newer SolarEdge-inverters
 
 # Connect to the inverter
 
-dev = pymodbus_connect_tcp(host, port = port)
+client.connect()
 
 # Read and print static information
 
-for k, v in sunspec_get_static(dev).items():
+for k, v in sunspec_get_static(client).items():
     print(k + ':', v)
 
 # Read and print dynamic variables in a loop, every 10 seconds
 
 while True:
     
-    for k, v in sunspec_get_vars(dev).items():
+    for k, v in sunspec_get_vars(client).items():
         print(k + ':', v)
     
     time.sleep(10)
