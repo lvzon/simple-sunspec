@@ -4,7 +4,6 @@
 # Interact with a modbus-device over TCP using Pymodbus 2.x (the version available in e.g. Ubuntu 22.04 LTS)
 
 from pymodbus.client.sync import ModbusTcpClient # for pymodbus 2.x
-#from pymodbus.client import ModbusTcpClient # for pymodbus 3.x
 
 class ModbusClientTCP():
     
@@ -43,4 +42,9 @@ class ModbusClientTCP():
             
         return count
     
-    
+    def write_single (self, reg_start, value):
+        # Use function code 0x06 to write a single register
+        wr = self.client.write_register(reg_start, value, unit = self.dev_id)
+        if wr.isError():
+            return 0
+        return 1;

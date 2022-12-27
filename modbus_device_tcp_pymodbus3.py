@@ -42,4 +42,10 @@ class ModbusClientTCP():
             
         return count
     
+    def write_single (self, reg_start, value):
+        # Use function code 0x06 to write a single register
+        wr = self.client.write_register(reg_start, value, slave = self.dev_id)
+        if wr.isError():
+            return 0
+        return 1;
     
